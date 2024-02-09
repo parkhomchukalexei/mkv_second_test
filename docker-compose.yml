@@ -1,0 +1,82 @@
+version: "3.9"
+
+services:
+
+  db:
+    container_name: mkv_database
+    image: postgis/postgis:15-master
+    ports:
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - ./postgres/db:/var/lib/postgresql/data
+    environment:
+      - TZ=Europe/Kyiv
+      - PGTZ=Europe/Kyiv
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_HOST_AUTH_METHOD=trust
+
+  backend:
+    container_name: django-backend
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    env_file: mkv_second_test/.env
+    command: bash -c "python manage.py makemigrations && python manage.py migrate && python manage.py runserver 0.0.0.0:8000"
+    ports:
+      - "127.0.0.1:8000:8000"
+    depends_on:
+      - db
+      - celeryworker
+      - celerybeat
+
+
+
+  pgadmin:
+    image: dpage/pgadmin4
+    container_name: postgres_admin
+    restart: always
+    ports:
+      - "127.0.0.1:5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: postgresadmin
+    depends_on:
+      - db
+
+  redis:
+    image: redis:7.0.5-alpine
+    container_name: redis
+    hostname: redis
+    ports:
+      - "6379:6379"
+
+
+  celeryworker:
+    container_name: celery-worker
+    build:
+      context: .
+    env_file: mkv_second_test/.env
+    command: celery -A mkv_second_test worker --loglevel=info
+    links:
+      - redis
+    volumes:
+      - ./:/usr/src/app/
+    depends_on:
+      - redis
+      - db
+    restart: always
+
+
+
+  celerybeat:
+    container_name: celery-beat
+    build:
+      context: .
+    env_file: mkv_second_test/.env
+    command: celery -A mkv_second_test beat --loglevel=info
+    links:
+      - redis
+    depends_on:
+      - redis
+      - db
+    restart: always

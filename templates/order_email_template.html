@@ -1,0 +1,4 @@
+<h1>Замовлення #{{order.id}}</h1>
+<p>Час початку бронювання: {{order.start_datetime}}</p>
+<p>Комірка #{{order.cell_id}}</p>
+<a href="{% url 'order_detail_view' slug %}">Натисніть на це посилання для детальної інформації</a>
